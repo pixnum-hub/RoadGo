@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0E14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RoadGo">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<title>RoadGo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --bg:#0B0E14; --panel:#121722; --panel-2:#171D2B; --text:#EAEEF6; --dim:#8B93A7;
+    --accent:#FFC531; --accent-ink:#1A1400; --danger:#FF5A52; --track:#232B3D;
+    --border:transparent; --shadow:0 20px 60px -20px rgba(0,0,0,.6);
+  }
+  html[data-theme="light"]{
+    --bg:#EDF0F5; --panel:#FFFFFF; --panel-2:#F4F6FA; --text:#151A24; --dim:#5B6472;
+    --accent:#B9790A; --accent-ink:#FFF7E6; --danger:#C6303A; --track:#DCE1EA;
+    --border:transparent; --shadow:0 16px 40px -18px rgba(20,25,40,.25);
+  }
+  html[data-theme="oled"]{
+    --bg:#000000; --panel:#050505; --panel-2:#0A0A0A; --text:#FFFFFF; --dim:#8A8A8A;
+    --accent:#FFC531; --accent-ink:#1A1400; --danger:#FF5A52; --track:#161616;
+    --border:transparent; --shadow:none;
+  }
+  html[data-theme="hc"]{
+    --bg:#000000; --panel:#000000; --panel-2:#000000; --text:#FFFFFF; --dim:#FFFFFF;
+    --accent:#FFFF00; --accent-ink:#000000; --danger:#FF3B3B; --track:#555555;
+    --border:#FFFFFF; --shadow:none;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  body,button,input{font-family:'Inter',system-ui,sans-serif;}
+  .num{font-family:'Inter',system-ui,sans-serif; font-variant-numeric:tabular-nums;}
+  body{
+    background:var(--bg); color:var(--text); min-height:100dvh;
+    display:flex; justify-content:center; padding:max(18px,env(safe-area-inset-top)) 16px 24px;
+    transition:background .25s ease,color .25s ease;
+  }
+  .app{width:100%; max-width:420px; display:flex; flex-direction:column; gap:16px;}
+  header{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .brand{font-family:'Inter',system-ui,sans-serif; font-size:clamp(1.5rem,7vw,1.9rem); font-weight:800; letter-spacing:-.01em; color:var(--text); line-height:1;}
+  .brand b{color:var(--accent); font-weight:700;}
+  .theme-circle{width:42px; height:42px; border-radius:50%; border:1px solid var(--border); background:var(--panel); box-shadow:var(--shadow); color:var(--text); font-size:1.15rem; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto;}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow); padding:18px;}
+  h2{margin:0 0 12px; font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--dim);}
+
+  .gauge-card{display:flex; flex-direction:column; align-items:center; gap:14px; padding:22px 18px;}
+  .gauge{position:relative; width:clamp(230px,72vw,300px); aspect-ratio:1/1;}
+  .tick{position:absolute; top:50%; left:50%; width:4px; height:13px; margin:-2px 0 0 -2px; border-radius:2px; background:var(--track); transition:background .18s ease; z-index:1;}
+  .tick.on{background:var(--accent);}
+  .tick.danger{background:var(--danger);}
+  .gauge-label{position:absolute; top:50%; left:50%; width:28px; margin:-8px 0 0 -14px; text-align:center; font-size:.62rem; font-weight:700; color:var(--dim); pointer-events:none; z-index:1;}
+  .needle{position:absolute; top:50%; left:50%; width:7px; margin-left:-3.5px; border-radius:3px 3px 1px 1px; border:1px solid rgba(0,0,0,.35); box-sizing:border-box; transform-origin:50% 100%; background:linear-gradient(90deg, #c7cbd1 0%, #ffffff 35%, #ffffff 65%, #c7cbd1 100%); filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)); pointer-events:none; z-index:1;}
+  .readout{position:absolute; inset:20%; border-radius:50%; background:var(--panel-2); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; border:1px solid var(--border); z-index:2;}
+  #speed{font-size:clamp(3rem,15vw,3.8rem); font-weight:700; line-height:1; color:var(--text); transition:color .18s ease;}
+  #speed.danger{color:var(--danger);}
+  .unit{font-size:.85rem; font-weight:600; letter-spacing:.08em; color:var(--dim); margin-top:2px;}
+  .status{display:flex; align-items:center; gap:8px; font-size:.78rem; color:var(--dim); font-weight:600;}
+  .status .heading{margin-left:auto; color:var(--text); font-weight:700;}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--dim);}
+  .dot.locked{background:#3ECF8E; box-shadow:0 0 0 4px rgba(62,207,142,.18);}
+  .dot.weak{background:var(--accent); box-shadow:0 0 0 4px rgba(255,197,49,.18);}
+  .dot.err{background:var(--danger); box-shadow:0 0 0 4px rgba(255,90,82,.18);}
+  @media (prefers-reduced-motion:no-preference){ .dot.locked{animation:pulse 1.6s ease-in-out infinite;} }
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.45;}}
+
+  .road-name{font-size:.75rem; color:var(--dim); text-align:center; margin-top:10px;}
+  .nav-row{display:flex; gap:8px; align-items:center;}
+  .nav-row input{width:64px; padding:10px 6px; border-radius:10px; border:1px solid var(--track); background:var(--panel-2); color:var(--text); text-align:center; font-size:.85rem;}
+  .nav-info{font-size:.75rem; color:var(--dim); margin-top:8px; line-height:1.5;}
+
+  .vehicle-toggle{display:flex; gap:6px; margin-bottom:14px;}
+  .vehicle-toggle button{flex:1; padding:10px 4px; border-radius:10px; border:1px solid var(--track); background:var(--panel-2); color:var(--dim); font-size:.68rem; font-weight:700; letter-spacing:.03em; cursor:pointer;}
+  .vehicle-toggle button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+
+  .limit-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; row-gap:8px;}
+  .limit-row label{font-size:.75rem; font-weight:600; color:var(--dim); flex:1 1 auto;}
+  .limit-row input{width:56px; padding:8px; border-radius:10px; border:1px solid var(--track); background:var(--panel-2); color:var(--text); font-size:.9rem; text-align:center;}
+  .icon-btn{width:36px; height:36px; border-radius:10px; border:1px solid var(--track); background:var(--panel-2); font-size:.95rem; cursor:pointer; flex:0 0 auto;}
+  .icon-btn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent);}
+  #muteBtn[aria-pressed="true"]{border-color:var(--danger); color:var(--danger);}
+
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .stat{background:var(--panel); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); padding:10px 6px; text-align:center;}
+  .stat .lbl{font-size:.58rem; font-weight:700; letter-spacing:.08em; color:var(--dim); text-transform:uppercase;}
+  .stat .val{font-size:1.05rem; font-weight:700; margin-top:4px;}
+
+  #graph{width:100%; height:80px; display:block;}
+  #map{width:100%; height:220px; border-radius:16px; overflow:hidden; background:var(--panel-2);}
+
+  .controls{display:flex; gap:10px;}
+  .btn{flex:1; padding:14px 10px; border-radius:14px; border:1px solid var(--border); font-weight:700; font-size:.85rem; letter-spacing:.04em; cursor:pointer; box-shadow:var(--shadow);}
+  .btn-primary{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .btn-primary.active{background:var(--danger); border-color:var(--danger); color:#fff;}
+  .btn-ghost{background:var(--panel); color:var(--text);}
+  .btn-unit{flex:0 0 auto; width:64px;}
+
+  .log-actions{display:flex; gap:8px; margin-bottom:12px;}
+  .log-actions .btn{padding:10px; font-size:.72rem;}
+  .log-list{max-height:190px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
+  .log-item{background:var(--panel-2); border-radius:12px; padding:10px 12px; font-size:.72rem; display:flex; justify-content:space-between; gap:8px; color:var(--dim);}
+  .log-item span:first-child{color:var(--text); font-weight:600;}
+  .log-empty{color:var(--dim); font-size:.78rem; text-align:center; padding:12px 0;}
+
+  footer{margin-top:2px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:2px; color:var(--dim); font-size:.72rem; line-height:1.5;}
+  footer strong{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">Road<b>Go</b></div>
+    <button class="theme-circle" id="themeBtn" title="Theme: Dark" aria-label="Theme: Dark. Tap to switch.">🌙</button>
+  </header>
+
+  <section class="panel gauge-card">
+    <div class="gauge" id="gauge">
+      <div class="needle" id="needle"></div>
+      <div class="readout">
+        <div id="speed" class="num" aria-live="polite">0</div>
+        <div class="unit"><span id="unitLabel">KM/H</span></div>
+      </div>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Tap start to track</span><span class="heading" id="headingText"></span></div>
+  </section>
+
+  <section class="panel">
+    <div class="vehicle-toggle" role="group" aria-label="Vehicle type">
+      <button data-vehicle-btn="bus" aria-pressed="true">BUS</button>
+      <button data-vehicle-btn="car" aria-pressed="false">CAR</button>
+      <button data-vehicle-btn="bike" aria-pressed="false">BIKE</button>
+      <button data-vehicle-btn="moto" aria-pressed="false">MOTO</button>
+    </div>
+    <div class="limit-row">
+      <label for="limitInput">Alert limit</label>
+      <input type="number" id="limitInput" value="60" min="0" inputmode="numeric">
+      <button class="icon-btn" id="muteBtn" aria-pressed="false" title="Toggle alert sound">🔔</button>
+      <button class="icon-btn" id="voiceBtn" aria-pressed="false" title="Toggle voice announcements">🤫</button>
+      <button class="icon-btn" id="saverBtn" aria-pressed="false" title="Toggle battery saver">🔋</button>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="lbl">Max</div><div class="val num" id="maxVal">0</div></div>
+    <div class="stat"><div class="lbl">Avg</div><div class="val num" id="avgVal">0</div></div>
+    <div class="stat"><div class="lbl">Distance</div><div class="val num" id="distVal">0</div></div>
+    <div class="stat"><div class="lbl">Accuracy</div><div class="val num" id="accVal">–</div></div>
+    <div class="stat"><div class="lbl">Duration</div><div class="val num" id="durVal">00:00</div></div>
+    <div class="stat"><div class="lbl">Idle</div><div class="val num" id="idleVal">00:00</div></div>
+    <div class="stat"><div class="lbl">Altitude</div><div class="val num" id="altVal">–</div></div>
+    <div class="stat"><div class="lbl">Harsh Events</div><div class="val num" id="harshVal">0</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Speed history</h2>
+    <canvas id="graph"></canvas>
+  </section>
+
+  <section class="panel">
+    <h2>Route map</h2>
+    <div id="map"></div>
+    <div class="road-name" id="roadName">Nearest road appears here while tracking</div>
+  </section>
+
+  <section class="panel">
+    <h2>Navigation</h2>
+    <div class="nav-row">
+      <button class="btn btn-ghost" id="destBtn">SET DESTINATION</button>
+      <button class="btn btn-ghost btn-unit" id="clearDestBtn">CLEAR</button>
+    </div>
+    <div class="nav-info" id="destInfo">Tap "Set Destination" then tap the map.</div>
+
+    <div class="nav-row" style="margin-top:14px;">
+      <button class="btn btn-ghost" id="geoBtn">SET GEOFENCE</button>
+      <input type="number" id="geoRadius" value="200" min="20" inputmode="numeric" title="Radius in meters">
+      <button class="btn btn-ghost btn-unit" id="clearGeoBtn">CLEAR</button>
+    </div>
+    <div class="nav-info" id="geoInfo">No geofence set.</div>
+  </section>
+
+  <section class="controls">
+    <button class="btn btn-primary" id="toggleBtn">START</button>
+    <button class="btn btn-ghost" id="resetBtn">RESET</button>
+    <button class="btn btn-ghost btn-unit" id="unitBtn">MPH</button>
+  </section>
+
+  <section class="panel">
+    <h2>Trip log</h2>
+    <div class="log-actions">
+      <button class="btn btn-ghost" id="saveTripBtn">SAVE TRIP</button>
+      <button class="btn btn-ghost" id="exportBtn">EXPORT CSV</button>
+      <button class="btn btn-ghost" id="clearLogBtn">CLEAR</button>
+    </div>
+    <div class="log-list" id="logList"><div class="log-empty">No trips saved yet</div></div>
+  </section>
+
+  <footer>
+    <div>&copy; Manik Roy <span id="year"></span>. <strong>All Rights Reserved.</strong></div>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  var TICK_COUNT = 48, START_ANGLE = -135, SWEEP = 270;
+  var needleTarget = 0, needleDisplay = 0, needleJitter = 0;
+  var gauge = document.getElementById('gauge'), ticks = [], needleEl = document.getElementById('needle');
+  var speedEl = document.getElementById('speed'), dot = document.getElementById('dot'), statusText = document.getElementById('statusText');
+  var maxValEl = document.getElementById('maxVal'), avgValEl = document.getElementById('avgVal'), accValEl = document.getElementById('accVal');
+  var distValEl = document.getElementById('distVal'), durValEl = document.getElementById('durVal'), idleValEl = document.getElementById('idleVal');
+  var toggleBtn = document.getElementById('toggleBtn'), resetBtn = document.getElementById('resetBtn'), unitBtn = document.getElementById('unitBtn');
+  var unitLabel = document.getElementById('unitLabel'), limitInput = document.getElementById('limitInput'), muteBtn = document.getElementById('muteBtn');
+  var voiceBtn = document.getElementById('voiceBtn'), saverBtn = document.getElementById('saverBtn');
+  var graphCanvas = document.getElementById('graph'), graphCtx = graphCanvas.getContext('2d');
+  var saveTripBtn = document.getElementById('saveTripBtn'), exportBtn = document.getElementById('exportBtn'), clearLogBtn = document.getElementById('clearLogBtn'), logListEl = document.getElementById('logList');
+  var headingTextEl = document.getElementById('headingText'), roadNameEl = document.getElementById('roadName'), altValEl = document.getElementById('altVal'), harshValEl = document.getElementById('harshVal');
+  var destBtn = document.getElementById('destBtn'), clearDestBtn = document.getElementById('clearDestBtn'), destInfoEl = document.getElementById('destInfo');
+  var geoBtn = document.getElementById('geoBtn'), clearGeoBtn = document.getElementById('clearGeoBtn'), geoInfoEl = document.getElementById('geoInfo'), geoRadiusInput = document.getElementById('geoRadius');
+
+  var unit = 'kmh', tracking = false, watchId = null, pollTimer = null;
+  var lastPos = null, lastTime = null, lastSpeedMps = 0, totalDist = 0, totalTime = 0, maxSpeed = 0, movingTime = 0, idleTime = 0;
+  var speedLimit = 60, alertsEnabled = true, wasOver = false, audioCtx = null;
+  var speedHistory = [], tripLog = [];
+  var trackStartTs = null, pausedElapsed = 0, durationTimer = null;
+  var map = null, marker = null, routeLine = null, routeCoords = [];
+  var vehicleType = 'bus', voiceEnabled = false, batterySaver = false, wakeLock = null, lastMilestone = 0;
+  var nearbyPOIs = [], alertedPOIs = new Set(), lastGeoQueryDist = -Infinity;
+  var lastRoadFetch = 0, lastFatigueHour = 0, harshEventCount = 0, lastHarshTime = 0, lastLeanAlert = 0;
+  var destPoint = null, destMarker = null, geofence = null, geofenceMarker = null, geofenceCircle = null, insideGeofence = false, mapClickMode = null;
+
+  var VEHICLES = {
+    bus:  { kmh:{ scale:500, limit:60  }, mph:{ scale:311, limit:37 } },
+    car:  { kmh:{ scale:500, limit:100 }, mph:{ scale:311, limit:62 } },
+    bike: { kmh:{ scale:500, limit:25  }, mph:{ scale:311, limit:16 } },
+    moto: { kmh:{ scale:500, limit:90  }, mph:{ scale:311, limit:56 } }
+  };
+
+  function maxScale(){ return VEHICLES[vehicleType][unit].scale; }
+  function applyVehiclePreset(){
+    speedLimit = VEHICLES[vehicleType][unit].limit;
+    limitInput.value = speedLimit;
+  }
+  function speak(text){
+    if(!voiceEnabled || !('speechSynthesis' in window)) return;
+    try{
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    }catch(e){}
+  }
+  function requestWakeLock(){
+    if('wakeLock' in navigator){
+      navigator.wakeLock.request('screen').then(function(l){ wakeLock = l; }).catch(function(){});
+    }
+  }
+  function releaseWakeLock(){
+    if(wakeLock){ wakeLock.release().catch(function(){}); wakeLock = null; }
+  }
+  function alertUser(text){
+    if(alertsEnabled){ beep(); if(navigator.vibrate) navigator.vibrate([120, 60, 120]); }
+    speak(text);
+  }
+  function fetchNearbyPOIs(lat, lon){
+    var q = '[out:json][timeout:15];(node["highway"="speed_camera"](around:2000,' + lat + ',' + lon + ');node["enforcement"](around:2000,' + lat + ',' + lon + ');node["amenity"="school"](around:2000,' + lat + ',' + lon + '););out body;';
+    fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        nearbyPOIs = (data.elements || []).map(function(el){
+          return { id: el.id, lat: el.lat, lon: el.lon, school: !!(el.tags && el.tags.amenity === 'school') };
+        });
+      }).catch(function(){});
+  }
+  function checkNearbyPOIs(lat, lon){
+    nearbyPOIs.forEach(function(p){
+      if(alertedPOIs.has(p.id)) return;
+      var d = haversine({ latitude: lat, longitude: lon }, { latitude: p.lat, longitude: p.lon });
+      if(d < 150){
+        alertedPOIs.add(p.id);
+        alertUser(p.school ? 'School zone ahead' : 'Speed camera ahead');
+      }
+    });
+  }
+  function fetchRoadName(lat, lon){
+    var now = Date.now();
+    if(now - lastRoadFetch < 15000) return;
+    lastRoadFetch = now;
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lon + '&zoom=16')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var a = data.address || {};
+        roadNameEl.textContent = a.road || a.pedestrian || a.suburb || 'Unnamed road';
+      }).catch(function(){});
+  }
+  function updateHeading(deg){
+    if(deg == null || isNaN(deg)){ headingTextEl.textContent = ''; return; }
+    var dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    headingTextEl.textContent = Math.round(deg) + '\u00B0 ' + dirs[Math.round(deg / 45) % 8];
+  }
+  function accent(){ return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(); }
+  function toDisplay(mps){ var v = unit === 'kmh' ? mps * 3.6 : mps * 2.23694; return v < 0 ? 0 : v; }
+  function fmtDur(sec){
+    sec = Math.max(0, Math.round(sec));
+    var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    var pad = function(n){ return n < 10 ? '0'+n : ''+n; };
+    return (h>0 ? h+':'+pad(m) : pad(m)) + ':' + pad(s);
+  }
+
+  function buildTicks(){
+    gauge.querySelectorAll('.tick').forEach(function(t){ t.remove(); });
+    ticks = [];
+    var r = gauge.clientWidth / 2 - 10;
+    for(var i = 0; i < TICK_COUNT; i++){
+      var angle = START_ANGLE + (SWEEP / (TICK_COUNT - 1)) * i;
+      var el = document.createElement('div');
+      el.className = 'tick';
+      el.style.transform = 'rotate(' + angle + 'deg) translateY(-' + r + 'px)';
+      gauge.appendChild(el);
+      ticks.push(el);
+    }
+    var needleR = gauge.clientWidth / 2 - 14;
+    needleEl.style.height = needleR + 'px';
+    needleEl.style.marginTop = (-needleR) + 'px';
+    buildLabels();
+  }
+
+  function niceStep(rough){
+    var exp = Math.floor(Math.log(rough) / Math.LN10);
+    var base = Math.pow(10, exp);
+    var f = rough / base;
+    var niceF = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+    return niceF * base;
+  }
+
+  function buildLabels(){
+    gauge.querySelectorAll('.gauge-label').forEach(function(t){ t.remove(); });
+    var r = gauge.clientWidth / 2 - 32;
+    var scale = maxScale();
+    var step = niceStep(scale / 5);
+    for(var v = 0; v <= scale + 0.001; v += step){
+      var frac = v / scale;
+      var angle = START_ANGLE + SWEEP * frac;
+      var el = document.createElement('div');
+      el.className = 'gauge-label';
+      el.textContent = Math.round(v);
+      el.style.transform = 'rotate(' + angle + 'deg) translateY(-' + r + 'px) rotate(' + (-angle) + 'deg)';
+      gauge.appendChild(el);
+    }
+  }
+
+  function animateNeedle(){
+    needleDisplay += (needleTarget - needleDisplay) * 0.12;
+    needleJitter *= 0.88;
+    var visual = Math.max(0, Math.min(1.08, needleDisplay + needleJitter));
+    needleEl.style.transform = 'rotate(' + (START_ANGLE + SWEEP * visual) + 'deg)';
+    requestAnimationFrame(animateNeedle);
+  }
+
+  function sizeGraph(){
+    graphCanvas.width = graphCanvas.clientWidth;
+    graphCanvas.height = 80;
+    drawGraph();
+  }
+
+  function drawGraph(){
+    var w = graphCanvas.width, h = graphCanvas.height;
+    graphCtx.clearRect(0, 0, w, h);
+    if(speedHistory.length < 2) return;
+    var maxV = maxScale();
+    graphCtx.beginPath();
+    speedHistory.forEach(function(v, i){
+      var x = (i / (speedHistory.length - 1)) * w;
+      var y = h - (Math.min(v, maxV) / maxV) * h;
+      i === 0 ? graphCtx.moveTo(x, y) : graphCtx.lineTo(x, y);
+    });
+    graphCtx.strokeStyle = accent();
+    graphCtx.lineWidth = 2;
+    graphCtx.lineJoin = 'round';
+    graphCtx.stroke();
+  }
+
+  function pushHistory(v){
+    speedHistory.push(v);
+    if(speedHistory.length > 80) speedHistory.shift();
+    drawGraph();
+  }
+
+  function haversine(a, b){
+    var R = 6371000, toRad = Math.PI / 180;
+    var dLat = (b.latitude - a.latitude) * toRad, dLon = (b.longitude - a.longitude) * toRad;
+    var la1 = a.latitude * toRad, la2 = b.latitude * toRad;
+    var h = Math.sin(dLat/2)**2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function setStatus(cls, text){ dot.className = 'dot ' + cls; statusText.textContent = text; }
+
+  function initMap(){
+    if(typeof L === 'undefined') return;
+    map = L.map('map', { zoomControl: false, attributionControl: true }).setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    map.on('click', function(e){
+      if(mapClickMode === 'dest'){ setDestination(e.latlng.lat, e.latlng.lng); mapClickMode = null; }
+      else if(mapClickMode === 'geofence'){ setGeofence(e.latlng.lat, e.latlng.lng); mapClickMode = null; }
+    });
+  }
+
+  function setDestination(lat, lon){
+    destPoint = { lat: lat, lon: lon };
+    if(destMarker) map.removeLayer(destMarker);
+    destMarker = L.marker([lat, lon]).addTo(map);
+    updateDestInfo();
+  }
+
+  function updateDestInfo(){
+    if(!destPoint){ destInfoEl.textContent = 'Tap "Set Destination" then tap the map.'; return; }
+    if(!lastPos){ destInfoEl.textContent = 'Destination set. Waiting for GPS…'; return; }
+    var d = haversine(lastPos, { latitude: destPoint.lat, longitude: destPoint.lon });
+    var distTxt = unit === 'kmh' ? (d/1000).toFixed(2) + ' km' : (d/1609.34).toFixed(2) + ' mi';
+    var avgMps = totalTime > 0 ? totalDist / totalTime : 0;
+    var etaTxt = avgMps > 0.3 ? fmtDur(d / avgMps) : '\u2014';
+    destInfoEl.textContent = distTxt + ' away \u00B7 ETA ' + etaTxt;
+  }
+
+  function setGeofence(lat, lon){
+    var radius = parseInt(geoRadiusInput.value, 10) || 200;
+    geofence = { lat: lat, lon: lon, radius: radius };
+    if(geofenceMarker) map.removeLayer(geofenceMarker);
+    if(geofenceCircle) map.removeLayer(geofenceCircle);
+    geofenceMarker = L.marker([lat, lon]).addTo(map);
+    geofenceCircle = L.circle([lat, lon], { radius: radius, color: accent(), fillOpacity: 0.12 }).addTo(map);
+    insideGeofence = false;
+    geoInfoEl.textContent = 'Geofence set (' + radius + 'm). Waiting for position\u2026';
+  }
+
+  function updateGeofence(lat, lon){
+    if(!geofence) return;
+    var d = haversine({ latitude: lat, longitude: lon }, { latitude: geofence.lat, longitude: geofence.lon });
+    var nowInside = d <= geofence.radius;
+    if(nowInside !== insideGeofence){
+      insideGeofence = nowInside;
+      alertUser(nowInside ? 'Entering geofence zone' : 'Leaving geofence zone');
+    }
+    geoInfoEl.textContent = 'Geofence (' + geofence.radius + 'm): ' + (insideGeofence ? 'Inside' : 'Outside') + ' \u00B7 ' + Math.round(d) + 'm from center';
+  }
+
+  function updateMap(lat, lon){
+    if(!map) return;
+    var ll = [lat, lon];
+    routeCoords.push(ll);
+    if(!marker){
+      marker = L.circleMarker(ll, { radius: 7, color: accent(), fillColor: accent(), fillOpacity: 1 }).addTo(map);
+      map.setView(ll, 16);
+    } else {
+      marker.setLatLng(ll);
+    }
+    if(!routeLine){
+      routeLine = L.polyline(routeCoords, { color: accent(), weight: 4 }).addTo(map);
+    } else {
+      routeLine.setLatLngs(routeCoords);
+    }
+    if(tracking) map.panTo(ll);
+  }
+
+  function clearMap(){
+    if(routeLine && map){ map.removeLayer(routeLine); routeLine = null; }
+    if(marker && map){ map.removeLayer(marker); marker = null; }
+    routeCoords = [];
+    if(map) map.setView([20, 0], 2);
+  }
+
+  function beep(){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + 0.35);
+    }catch(e){}
+  }
+
+  function checkOverspeed(displaySpeed){
+    var over = displaySpeed > speedLimit;
+    if(over && !wasOver) alertUser('Speed limit exceeded');
+    wasOver = over;
+  }
+
+  function render(speedMps, accuracy){
+    var displaySpeed = toDisplay(speedMps);
+    var frac = Math.min(displaySpeed / maxScale(), 1);
+    var danger = displaySpeed > speedLimit;
+    var lit = Math.round(frac * TICK_COUNT);
+
+    ticks.forEach(function(t, i){
+      t.classList.toggle('on', i < lit);
+      t.classList.toggle('danger', i < lit && danger);
+    });
+    needleTarget = frac;
+    speedEl.textContent = Math.round(displaySpeed);
+    speedEl.classList.toggle('danger', danger);
+
+    if(displaySpeed > maxSpeed) maxSpeed = displaySpeed;
+    maxValEl.textContent = Math.round(maxSpeed);
+    var avgMps = totalTime > 0 ? totalDist / totalTime : 0;
+    avgValEl.textContent = Math.round(toDisplay(avgMps));
+    if(typeof accuracy === 'number') accValEl.textContent = Math.round(accuracy) + 'm';
+    distValEl.textContent = unit === 'kmh' ? (totalDist/1000).toFixed(2) : (totalDist/1609.34).toFixed(2);
+    idleValEl.textContent = fmtDur(idleTime);
+  }
+
+  function updateDuration(){
+    var total = pausedElapsed + (trackStartTs ? (Date.now() - trackStartTs) / 1000 : 0);
+    durValEl.textContent = fmtDur(total);
+  }
+
+  function onPosition(pos){
+    var c = pos.coords, now = pos.timestamp;
+    var speedMps = c.speed;
+
+    if(lastPos && lastTime){
+      var dt = (now - lastTime) / 1000;
+      if(dt > 0){
+        var dist = haversine(lastPos, c);
+        if(speedMps == null) speedMps = dist / dt;
+        totalDist += dist; totalTime += dt;
+        if(speedMps > 0.5) movingTime += dt; else idleTime += dt;
+
+        var fatigueHours = Math.floor(movingTime / 7200);
+        if(fatigueHours > lastFatigueHour){
+          lastFatigueHour = fatigueHours;
+          alertUser('You have been driving for ' + (fatigueHours * 2) + ' hours. Consider taking a break.');
+        }
+      }
+    }
+    lastPos = c; lastTime = now;
+    if(speedMps == null) speedMps = 0;
+    lastSpeedMps = speedMps;
+
+    setStatus(c.accuracy <= 25 ? 'locked' : 'weak', c.accuracy <= 25 ? 'GPS locked' : 'Weak GPS signal');
+    render(speedMps, c.accuracy);
+    pushHistory(toDisplay(speedMps));
+    updateMap(c.latitude, c.longitude);
+    checkOverspeed(toDisplay(speedMps));
+    updateHeading(c.heading);
+    altValEl.textContent = c.altitude != null ? Math.round(c.altitude) + 'm' : '\u2013';
+    fetchRoadName(c.latitude, c.longitude);
+    updateDestInfo();
+    updateGeofence(c.latitude, c.longitude);
+
+    if(totalDist - lastGeoQueryDist > 1000){
+      lastGeoQueryDist = totalDist;
+      fetchNearbyPOIs(c.latitude, c.longitude);
+    }
+    checkNearbyPOIs(c.latitude, c.longitude);
+
+    var milestoneCount = Math.floor(unit === 'kmh' ? totalDist / 1000 : totalDist / 1609.34);
+    if(milestoneCount > lastMilestone && milestoneCount > 0){
+      lastMilestone = milestoneCount;
+      speak(milestoneCount + (unit === 'kmh' ? ' kilometers' : ' miles'));
+    }
+  }
+
+  function onError(err){ setStatus('err', err.code === 1 ? 'Location permission denied' : 'GPS unavailable'); }
+
+  window.addEventListener('devicemotion', function(e){
+    var pure = e.acceleration && e.acceleration.x != null ? e.acceleration : null;
+    if(pure){
+      var pureMag = Math.sqrt(Math.pow(pure.x || 0, 2) + Math.pow(pure.y || 0, 2) + Math.pow(pure.z || 0, 2));
+      needleJitter = Math.min(0.07, needleJitter + pureMag / 70);
+    }
+    if(!tracking) return;
+    var a = pure || e.accelerationIncludingGravity;
+    if(!a) return;
+    var mag = Math.sqrt(Math.pow(a.x || 0, 2) + Math.pow(a.y || 0, 2) + Math.pow(a.z || 0, 2));
+    var now = Date.now();
+    if(mag > 8 && now - lastHarshTime > 3000){
+      lastHarshTime = now;
+      harshEventCount++;
+      harshValEl.textContent = harshEventCount;
+      alertUser('Harsh driving detected');
+    }
+  });
+
+  window.addEventListener('deviceorientation', function(e){
+    if(!tracking || vehicleType !== 'moto' || e.gamma == null) return;
+    var now = Date.now();
+    if(Math.abs(e.gamma) > 40 && now - lastLeanAlert > 4000){
+      lastLeanAlert = now;
+      alertUser('Sharp lean angle');
+    }
+  });
+
+  function startTracking(silent){
+    if(!('geolocation' in navigator)){ setStatus('err', 'Geolocation not supported'); return; }
+    tracking = true;
+    toggleBtn.textContent = 'STOP';
+    toggleBtn.classList.add('active');
+    setStatus('weak', 'Acquiring GPS…');
+    trackStartTs = Date.now();
+    durationTimer = setInterval(updateDuration, 1000);
+    requestWakeLock();
+    if(!silent) speak('Tracking started');
+    if(typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'){
+      DeviceMotionEvent.requestPermission().catch(function(){});
+    }
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      DeviceOrientationEvent.requestPermission().catch(function(){});
+    }
+    if(batterySaver){
+      var opts = { enableHighAccuracy: false, maximumAge: 4000, timeout: 8000 };
+      navigator.geolocation.getCurrentPosition(onPosition, onError, opts);
+      pollTimer = setInterval(function(){ navigator.geolocation.getCurrentPosition(onPosition, onError, opts); }, 5000);
+    } else {
+      watchId = navigator.geolocation.watchPosition(onPosition, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+    }
+  }
+
+  function stopTracking(silent){
+    tracking = false;
+    toggleBtn.textContent = 'START';
+    toggleBtn.classList.remove('active');
+    if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+    if(pollTimer) clearInterval(pollTimer);
+    watchId = null; pollTimer = null; lastPos = null; lastTime = null;
+    if(trackStartTs){ pausedElapsed += (Date.now() - trackStartTs) / 1000; trackStartTs = null; }
+    clearInterval(durationTimer);
+    updateDuration();
+    setStatus('', 'Tracking stopped');
+    releaseWakeLock();
+    if(!silent) speak('Tracking stopped');
+  }
+
+  function resetStats(){
+    maxSpeed = 0; totalDist = 0; totalTime = 0; movingTime = 0; idleTime = 0; pausedElapsed = 0;
+    speedHistory = []; wasOver = false; lastMilestone = 0; lastFatigueHour = 0;
+    harshEventCount = 0; harshValEl.textContent = '0';
+    nearbyPOIs = []; alertedPOIs = new Set(); lastGeoQueryDist = -Infinity;
+    altValEl.textContent = '\u2013'; headingTextEl.textContent = ''; roadNameEl.textContent = 'Nearest road appears here while tracking';
+    clearMap();
+    updateDuration();
+    render(0);
+    drawGraph();
+  }
+
+  function renderLog(){
+    if(!tripLog.length){ logListEl.innerHTML = '<div class="log-empty">No trips saved yet</div>'; return; }
+    logListEl.innerHTML = tripLog.map(function(t){
+      return '<div class="log-item"><span>' + t.date + '</span><span>' + t.max + ' max &middot; ' + t.dist + ' &middot; ' + t.dur + '</span></div>';
+    }).join('');
+  }
+
+  function saveTrip(){
+    var u = unit === 'kmh' ? ' km/h' : ' mph';
+    var distTxt = unit === 'kmh' ? (totalDist/1000).toFixed(2) + ' km' : (totalDist/1609.34).toFixed(2) + ' mi';
+    tripLog.unshift({
+      date: new Date().toLocaleString(),
+      max: Math.round(maxSpeed) + u,
+      avg: Math.round(toDisplay(totalTime > 0 ? totalDist/totalTime : 0)) + u,
+      dist: distTxt,
+      dur: durValEl.textContent,
+      idle: idleValEl.textContent
+    });
+    renderLog();
+  }
+
+  function exportCSV(){
+    if(!tripLog.length) return;
+    var header = 'Date,Max Speed,Avg Speed,Distance,Duration,Idle Time\n';
+    var rows = tripLog.map(function(t){ return [t.date, t.max, t.avg, t.dist, t.dur, t.idle].join(','); }).join('\n');
+    var blob = new Blob([header + rows], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'roadgo-trips.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  toggleBtn.addEventListener('click', function(){ tracking ? stopTracking(false) : startTracking(false); });
+  resetBtn.addEventListener('click', resetStats);
+  saveTripBtn.addEventListener('click', saveTrip);
+  exportBtn.addEventListener('click', exportCSV);
+  clearLogBtn.addEventListener('click', function(){ tripLog = []; renderLog(); });
+
+  unitBtn.addEventListener('click', function(){
+    var newUnit = unit === 'kmh' ? 'mph' : 'kmh';
+    speedLimit = newUnit === 'mph' ? Math.round(speedLimit * 0.621371) : Math.round(speedLimit / 0.621371);
+    unit = newUnit;
+    unitLabel.textContent = unit === 'kmh' ? 'KM/H' : 'MPH';
+    unitBtn.textContent = unit === 'kmh' ? 'MPH' : 'KM/H';
+    limitInput.value = speedLimit;
+    render(lastSpeedMps);
+    drawGraph();
+    buildLabels();
+  });
+
+  limitInput.addEventListener('change', function(){ speedLimit = parseInt(limitInput.value, 10) || 0; });
+  muteBtn.addEventListener('click', function(){
+    alertsEnabled = !alertsEnabled;
+    muteBtn.textContent = alertsEnabled ? '🔔' : '🔕';
+    muteBtn.setAttribute('aria-pressed', String(!alertsEnabled));
+  });
+
+  voiceBtn.addEventListener('click', function(){
+    voiceEnabled = !voiceEnabled;
+    voiceBtn.textContent = voiceEnabled ? '🗣️' : '🤫';
+    voiceBtn.setAttribute('aria-pressed', String(voiceEnabled));
+    if(voiceEnabled) speak('Voice announcements on');
+  });
+
+  saverBtn.addEventListener('click', function(){
+    batterySaver = !batterySaver;
+    saverBtn.textContent = batterySaver ? '🪫' : '🔋';
+    saverBtn.setAttribute('aria-pressed', String(batterySaver));
+    if(tracking){ stopTracking(true); startTracking(true); }
+  });
+
+  document.querySelectorAll('[data-vehicle-btn]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      vehicleType = btn.dataset.vehicleBtn;
+      document.querySelectorAll('[data-vehicle-btn]').forEach(function(b){ b.setAttribute('aria-pressed', b === btn); });
+      applyVehiclePreset();
+      render(lastSpeedMps);
+      drawGraph();
+      buildLabels();
+    });
+  });
+
+  document.addEventListener('visibilitychange', function(){
+    if(tracking && document.visibilityState === 'visible') requestWakeLock();
+  });
+
+  destBtn.addEventListener('click', function(){ mapClickMode = 'dest'; destInfoEl.textContent = 'Tap the map to place your destination.'; });
+  clearDestBtn.addEventListener('click', function(){
+    destPoint = null;
+    if(destMarker){ map.removeLayer(destMarker); destMarker = null; }
+    destInfoEl.textContent = 'Tap "Set Destination" then tap the map.';
+  });
+  geoBtn.addEventListener('click', function(){ mapClickMode = 'geofence'; geoInfoEl.textContent = 'Tap the map to place the geofence center.'; });
+  clearGeoBtn.addEventListener('click', function(){
+    geofence = null;
+    if(geofenceMarker){ map.removeLayer(geofenceMarker); geofenceMarker = null; }
+    if(geofenceCircle){ map.removeLayer(geofenceCircle); geofenceCircle = null; }
+    geoInfoEl.textContent = 'No geofence set.';
+  });
+
+  var THEMES = [
+    { key: 'dark', label: 'Dark', icon: '\uD83C\uDF19' },
+    { key: 'light', label: 'Light', icon: '\u2600\uFE0F' },
+    { key: 'oled', label: 'OLED Black', icon: '\u26AB' },
+    { key: 'hc', label: 'High Contrast', icon: '\u25D1' }
+  ];
+  var themeIndex = 0;
+  var themeBtn = document.getElementById('themeBtn');
+  themeBtn.addEventListener('click', function(){
+    themeIndex = (themeIndex + 1) % THEMES.length;
+    var t = THEMES[themeIndex];
+    document.documentElement.setAttribute('data-theme', t.key);
+    themeBtn.textContent = t.icon;
+    themeBtn.title = 'Theme: ' + t.label;
+    themeBtn.setAttribute('aria-label', 'Theme: ' + t.label + '. Tap to switch.');
+    drawGraph();
+    if(marker) marker.setStyle({ color: accent(), fillColor: accent() });
+    if(routeLine) routeLine.setStyle({ color: accent() });
+  });
+
+  window.addEventListener('resize', function(){ buildTicks(); sizeGraph(); });
+  document.getElementById('year').textContent = new Date().getFullYear() > 2026 ? '2026–' + new Date().getFullYear() : '2026';
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  }
+
+  buildTicks();
+  sizeGraph();
+  initMap();
+  renderLog();
+  render(0);
+  requestAnimationFrame(animateNeedle);
+})();
+</script>
+</body>
+</html>
